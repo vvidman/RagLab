@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="src/RagLab.Core/RagLab.Core.csproj" />
+  <Project Path="src/RagLab.Infrastructure/RagLab.Infrastructure.csproj" />
+  <Project Path="src/RagLab.Console/RagLab.Console.csproj" />
+</Solution>
