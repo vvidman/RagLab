@@ -59,6 +59,19 @@ public record RetrievedChunk(
 );
 ```
 
+### ConversationTurn
+A single exchange of user message and assistant response.
+Stored in the history vector store, embedded the same way as document chunks.
+
+```csharp
+public record ConversationTurn(
+    string Id,
+    string UserMessage,
+    string AssistantResponse,
+    DateTimeOffset Timestamp
+);
+```
+
 ## Interfaces (RagLab.Core/Interfaces/)
 
 ### IDocumentLoader
@@ -107,7 +120,8 @@ public interface IGenerator
 {
     Task<string> GenerateAsync(
         string query,
-        IReadOnlyList<RetrievedChunk> context,
+        IReadOnlyList<RetrievedChunk> documentContext,
+        IReadOnlyList<RetrievedChunk> historyContext,
         CancellationToken ct = default);
 }
 ```
@@ -117,3 +131,5 @@ public interface IGenerator
 - Interfaces **never change** between phases — only implementations are swapped
 - Models carry no business logic — pure data containers
 - `Id` on every model defaults to `Guid.NewGuid().ToString()` at construction time
+- `IGenerator` receives both `documentContext` and `historyContext` separately
+  to allow the prompt builder to label and section them correctly

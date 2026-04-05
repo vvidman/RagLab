@@ -30,8 +30,9 @@ Always verify the latest stable version on NuGet — the version number may chan
 }
 ```
 
-### Options Record (Core)
+### Options Record (Infrastructure)
 ```csharp
+// RagLab.Infrastructure/LlamaSharp/LlamaSharpOptions.cs
 public record LlamaSharpOptions
 {
     public required string EmbeddingModelPath { get; init; }
@@ -41,21 +42,54 @@ public record LlamaSharpOptions
 }
 ```
 
+Note: `LlamaSharpOptions` lives in Infrastructure, not Core.
+Core must remain free of provider-specific configuration types.
+
+## LlamaSlice
+
+The slice registers all LlamaSharp-specific components in one place.
+
+```csharp
+// RagLab.Infrastructure/LlamaSharp/LlamaSlice.cs
+public sealed class LlamaSlice : IModelSlice
+{
+    public int RecommendedTopK => 3;
+
+    public void Register(IServiceCollection services, IConfiguration configuration)
+    {
+        services.Configure<LlamaSharpOptions>(configuration.GetSection("LlamaSharp"));
+
+        services.AddSingleton<LlamaEmbedder>();
+        services.AddSingleton<IEmbedder>(sp => sp.GetRequiredService<LlamaEmbedder>());
+
+        services.AddSingleton<LlamaGenerator>();
+        services.AddSingleton<IGenerator>(sp => sp.GetRequiredService<LlamaGenerator>());
+
+        services.AddSingleton<IChunker>(_ => new FixedSizeChunker(new FixedSizeChunkerOptions
+        {
+            ChunkSize = 512,
+            Overlap = 64
+        }));
+    }
+}
+```
+
 ## LlamaEmbedder Implementation
 
 ```csharp
-// Skeleton — model and weights loading is expensive, so Singleton lifetime
+// Singleton lifetime — model and weights loading is expensive
 public sealed class LlamaEmbedder : IEmbedder, IDisposable
 {
     private readonly LLamaWeights _weights;
     private readonly LLamaEmbedder _embedder;
+    private readonly SemaphoreSlim _semaphore = new(1, 1);
 
-    public LlamaEmbedder(LlamaSharpOptions options)
+    public LlamaEmbedder(IOptions<LlamaSharpOptions> options)
     {
-        var parameters = new ModelParams(options.EmbeddingModelPath)
+        var parameters = new ModelParams(options.Value.EmbeddingModelPath)
         {
-            ContextSize = (uint)options.ContextSize,
-            GpuLayerCount = options.GpuLayerCount
+            ContextSize = (uint)options.Value.ContextSize,
+            GpuLayerCount = options.Value.GpuLayerCount
         };
         _weights = LLamaWeights.LoadFromFile(parameters);
         _embedder = new LLamaEmbedder(_weights, parameters);
@@ -63,14 +97,22 @@ public sealed class LlamaEmbedder : IEmbedder, IDisposable
 
     public async Task<float[]> EmbedAsync(string text, CancellationToken ct = default)
     {
-        var embeddings = await _embedder.GetEmbeddings(text);
-        return embeddings;
+        await _semaphore.WaitAsync(ct);
+        try
+        {
+            return await _embedder.GetEmbeddings(text);
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
     }
 
     public void Dispose()
     {
         _embedder.Dispose();
         _weights.Dispose();
+        _semaphore.Dispose();
     }
 }
 ```
@@ -78,17 +120,13 @@ public sealed class LlamaEmbedder : IEmbedder, IDisposable
 ## LlamaGenerator Implementation
 
 - Use `StatelessExecutor` (stateless — every call gets a fresh context)
-- System prompt template comes from a prompt file or options, not hardcoded
+- Prompt template receives both `documentContext` and `historyContext` separately
 - Max token limit and temperature come from options
 
 ## DI Registration
 
-```csharp
-// RagLab.Console / Program.cs
-services.Configure<LlamaSharpOptions>(config.GetSection("LlamaSharp"));
-services.AddSingleton<IEmbedder, LlamaEmbedder>();
-services.AddSingleton<IGenerator, LlamaGenerator>();
-```
+Registration is handled entirely by `LlamaSlice.Register()` — do not register
+LlamaSharp components individually in Program.cs.
 
 **Singleton is required** — loading a GGUF model takes seconds and gigabytes of memory;
 it cannot be reloaded per request.
