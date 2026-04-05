@@ -128,10 +128,12 @@ await historyStore.UpsertAsync(new EmbeddedChunk(chunk, turnEmbedding), ct);
 
 ## Generator Prompt Template
 
-The generator receives document context and history context separately:
+`BuildPrompt` assembles the prompt **content** as structured plain text and passes it to
+the generator. The chat template wrapping (special tokens, role markers such as
+`<|im_start|>` or `[INST]`) is applied by LlamaSharp automatically — **never** add
+template tokens manually into the prompt string.
 
 ```
-System:
 You are a helpful assistant.
 Answer exclusively based on the provided context.
 If the context does not contain relevant information, say so clearly.
@@ -149,8 +151,11 @@ Question: {user_query}
 ```
 
 - Document chunks are prefixed `[N]`, history chunks are prefixed `[HN]`
+- The `Conversation History` section is omitted entirely when `historyContext` is empty
 - Default `documentTopK`: from `IModelSlice.RecommendedTopK`
 - Default `historyTopK`: 2
+- Chat template application is controlled by `LlamaSharpOptions.ApplyChatTemplate`
+  (see `.claude/instructions/04-llamasharp.md` — Chat Template Support)
 
 ## Loader Selection
 

@@ -119,7 +119,39 @@ public sealed class LlamaEmbedder : IEmbedder, IDisposable
 
 ## LlamaGenerator Implementation
 
-- Use `StatelessExecutor` (stateless — every call gets a fresh context)
+### Chat Template Support
+
+Instruction-tuned models (e.g. Qwen2.5-Instruct, Llama 3 Instruct, Phi-3) expect prompts
+formatted with a model-specific template — ChatML, Llama 3, Alpaca, etc. — using special
+tokens such as `<|im_start|>`, `<|begin_of_text|>`, or `### Instruction:`. These templates
+are baked into the model's GGUF metadata.
+
+LlamaSharp reads this template automatically when `ChatSession` is used. `LlamaGenerator`
+uses `ChatSession + InteractiveExecutor` when `LlamaSharpOptions.ApplyChatTemplate = true`
+(the default), and falls back to `StatelessExecutor` when `false`.
+
+A fresh `LLamaContext`, `InteractiveExecutor`, and `ChatSession` are created per
+`GenerateAsync` call so that no state leaks between queries.
+
+**BuildPrompt assembles content only** — system instructions, document context, history
+context, and the question — as structured plain text. It must never hardcode template tokens
+such as `<|im_start|>` or `<|begin_of_text|>`. Template wrapping is applied by LlamaSharp
+automatically.
+
+```csharp
+// ApplyChatTemplate = true  (default)
+using LLamaContext context = _weights.CreateContext(_parameters);
+var executor = new InteractiveExecutor(context);
+var session = new ChatSession(executor);
+var message = new ChatHistory.Message(AuthorRole.User, prompt);
+await foreach (string token in session.ChatAsync(message, inferenceParams: null, ct))
+    sb.Append(token);
+
+// ApplyChatTemplate = false  (plain-text fallback)
+await foreach (string token in _executor!.InferAsync(prompt, cancellationToken: ct))
+    sb.Append(token);
+```
+
 - Prompt template receives both `documentContext` and `historyContext` separately
 - Max token limit and temperature come from options
 

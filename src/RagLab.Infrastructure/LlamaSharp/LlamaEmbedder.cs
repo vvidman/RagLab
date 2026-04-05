@@ -1,5 +1,6 @@
 using LLama;
 using LLama.Common;
+using Microsoft.Extensions.Options;
 using RagLab.Core.Interfaces;
 
 namespace RagLab.Infrastructure.LlamaSharp;
@@ -10,14 +11,14 @@ public sealed class LlamaEmbedder : IEmbedder, IDisposable
     private readonly LLamaEmbedder _embedder;
     private readonly SemaphoreSlim _semaphore = new(1, 1);
 
-    public LlamaEmbedder(LlamaSharpOptions options)
+    public LlamaEmbedder(IOptions<LlamaSharpOptions> options)
     {
         ArgumentNullException.ThrowIfNull(options);
 
-        var parameters = new ModelParams(options.EmbeddingModelPath)
+        var parameters = new ModelParams(options.Value.EmbeddingModelPath)
         {
-            ContextSize = (uint)options.ContextSize,
-            GpuLayerCount = options.GpuLayerCount
+            ContextSize = (uint)options.Value.ContextSize,
+            GpuLayerCount = options.Value.GpuLayerCount
         };
 
         _weights = LLamaWeights.LoadFromFile(parameters);

@@ -1,0 +1,25 @@
+# Modell súlyok és binárisok
+*.gguf
+*.bin
+*.safetensors
+*.pth
+*.pt
+*.ckpt
+*.onnx
+*.joblib
+*.pb
+*.h5
+
+# Hugging Face és egyéb gyorsítótárak
+.huggingface/
+tokenizers/
+**/checkpoint-*/
+
+# Dokumentáció és metaadatok (opcionális, ha ezeket sem akarod)
+# config.json
+# tokenizer_config.json
+
+# Ideiglenes letöltési fájlok
+*.part
+*.crdownload
+*.lfs.*

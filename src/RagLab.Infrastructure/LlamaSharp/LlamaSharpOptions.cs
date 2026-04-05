@@ -6,4 +6,5 @@ public record LlamaSharpOptions
     public required string GenerationModelPath { get; init; }
     public int ContextSize { get; init; } = 4096;
     public int GpuLayerCount { get; init; } = 0;
+    public bool ApplyChatTemplate { get; init; } = true;
 }

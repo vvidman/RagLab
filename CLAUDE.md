@@ -53,3 +53,4 @@ For deeper rules on each layer, see `.claude/instructions/`:
 - **DI:** constructor injection only, no service locator
 - **IModelSlice:** lives in Infrastructure, registered in Console via `slice.Register(...)`
 - **Vector stores:** keyed DI — `"documents"` and `"history"` are separate `InMemoryVectorStore` instances
+- **Chat template:** LlamaGenerator uses native GGUF metadata template via LlamaSharp ChatSession. Fallback to plain text if unavailable. Controlled by `LlamaSharpOptions.ApplyChatTemplate`.

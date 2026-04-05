@@ -2,51 +2,34 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using RagLab.Console;
 using RagLab.Core.Interfaces;
-using RagLab.Infrastructure.Chunking;
+using RagLab.Infrastructure;
 using RagLab.Infrastructure.LlamaSharp;
 using RagLab.Infrastructure.Loaders;
 using RagLab.Infrastructure.VectorStore;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-builder.Services.Configure<LlamaSharpOptions>(builder.Configuration.GetSection("LlamaSharp"));
-builder.Services.Configure<FixedSizeChunkerOptions>(builder.Configuration.GetSection("Chunker"));
+IModelSlice slice = new LlamaSlice();
+slice.Register(builder.Services, builder.Configuration);
 
-builder.Services.AddSingleton(sp =>
-{
-    var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<LlamaSharpOptions>>().Value;
-    return new LlamaEmbedder(opts);
-});
-builder.Services.AddSingleton<IEmbedder>(sp => sp.GetRequiredService<LlamaEmbedder>());
-
-builder.Services.AddSingleton(sp =>
-{
-    var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<LlamaSharpOptions>>().Value;
-    return new LlamaGenerator(opts);
-});
-builder.Services.AddSingleton<IGenerator>(sp => sp.GetRequiredService<LlamaGenerator>());
-
-builder.Services.AddSingleton<InMemoryVectorStore>();
-builder.Services.AddSingleton<IVectorStore>(sp => sp.GetRequiredService<InMemoryVectorStore>());
+builder.Services.AddKeyedSingleton<IVectorStore, InMemoryVectorStore>("documents");
+builder.Services.AddKeyedSingleton<IVectorStore, InMemoryVectorStore>("history");
 
 builder.Services.AddSingleton<IDocumentLoader, TextDocumentLoader>();
 builder.Services.AddSingleton<IDocumentLoader, MarkdownDocumentLoader>();
 
-builder.Services.AddSingleton<IChunker>(sp =>
-{
-    var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<FixedSizeChunkerOptions>>().Value;
-    return new FixedSizeChunker(opts);
-});
-
-builder.Services.AddSingleton<RagPipeline>();
+builder.Services.AddSingleton<IndexingPipeline>();
+builder.Services.AddSingleton<QueryPipeline>();
 
 var app = builder.Build();
 
-var pipeline = app.Services.GetRequiredService<RagPipeline>();
+var indexing = app.Services.GetRequiredService<IndexingPipeline>();
+var query = app.Services.GetRequiredService<QueryPipeline>();
 
-await pipeline.IndexAsync("docs/sample.md");
+await indexing.IndexAsync("docs/sample.md");
 
-string answer = await pipeline.QueryAsync("What are the main components of the RAG pipeline?");
-Console.WriteLine();
-Console.WriteLine("Answer:");
+string answer = await query.QueryAsync("What are the main components of the RAG pipeline?");
 Console.WriteLine(answer);
+
+string answer2 = await query.QueryAsync("Can you summarize what you just told me?");
+Console.WriteLine(answer2);

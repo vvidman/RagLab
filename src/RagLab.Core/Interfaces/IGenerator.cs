@@ -6,6 +6,7 @@ public interface IGenerator
 {
     Task<string> GenerateAsync(
         string query,
-        IReadOnlyList<RetrievedChunk> context,
+        IReadOnlyList<RetrievedChunk> documentContext,
+        IReadOnlyList<RetrievedChunk> historyContext,
         CancellationToken ct = default);
 }
