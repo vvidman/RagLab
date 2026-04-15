@@ -1,3 +1,5 @@
+using AiObs.Postgres;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using RagLab.Console;
@@ -18,6 +20,11 @@ builder.Services.AddKeyedSingleton<IVectorStore, InMemoryVectorStore>("history")
 builder.Services.AddSingleton<IDocumentLoader, TextDocumentLoader>();
 builder.Services.AddSingleton<IDocumentLoader, MarkdownDocumentLoader>();
 builder.Services.AddSingleton(slice);
+
+builder.Services.AddPostgresTraceStore(
+    connectionString: builder.Configuration.GetConnectionString("AiObs")
+        ?? throw new InvalidOperationException("AiObs connection string is required."),
+    initializeSchema: true);
 
 builder.Services.AddSingleton<IndexingPipeline>();
 builder.Services.AddSingleton<QueryPipeline>();
